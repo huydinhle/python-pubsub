@@ -22,7 +22,10 @@ at https://cloud.google.com/pubsub/docs.
 """
 
 import argparse
+import glob
 from typing import Callable
+import jinja2
+import ruamel.yaml as yaml
 
 
 def list_topics(project_id: str) -> None:
@@ -385,6 +388,22 @@ def resume_publish_with_ordering_keys(project_id: str, topic_id: str) -> None:
     print(f"Resumed publishing messages with ordering keys to {topic_path}.")
     # [END pubsub_resume_publish_with_ordering_keys]
 
+def create_topics_from_file(project_id:str, path: str):
+
+    topic_list = []
+    files = glob.glob(path + '/**/*.jinja', recursive=True)
+    for file in files:
+        if 'pubsubTopics.jinja' in file:
+            with open(file) as file_:
+                template  = jinja2.Template(file_.read())
+                topics_output_text = template.render(env="")
+                topics = yaml.load(topics_output_text, Loader=yaml.SafeLoader)["resources"]
+                for topic in topics:
+                    topic_list.append(topic["properties"]["topic"])
+
+    print(topic_list)
+    for topic_name in topic_list:
+        create_topic(project_id, topic_name)
 
 def detach_subscription(project_id: str, subscription_id: str) -> None:
     """Detaches a subscription from a topic and drops all messages retained in it."""
@@ -428,6 +447,9 @@ if __name__ == "__main__":
 
     create_parser = subparsers.add_parser("create", help=create_topic.__doc__)
     create_parser.add_argument("topic_id")
+
+    create_topics_from_file_parser = subparsers.add_parser("create-topics-from-file", help=create_topic.__doc__)
+    create_topics_from_file_parser.add_argument("path")
 
     delete_parser = subparsers.add_parser("delete", help=delete_topic.__doc__)
     delete_parser.add_argument("topic_id")
@@ -506,3 +528,5 @@ if __name__ == "__main__":
         resume_publish_with_ordering_keys(args.project_id, args.topic_id)
     elif args.command == "detach-subscription":
         detach_subscription(args.project_id, args.subscription_id)
+    elif args.command == "create-topics-from-file":
+        create_topics_from_file(args.project_id, args.path)

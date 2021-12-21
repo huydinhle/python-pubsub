@@ -22,7 +22,24 @@ at https://cloud.google.com/pubsub/docs.
 """
 
 import argparse
+import glob
+import jinja2
+import ruamel.yaml as yaml
 
+def create_subscriptions_from_file(project_id: str, path: str):
+    subscription_list = []
+    files = glob.glob(path + '/**/*.jinja', recursive=True)
+    for file in files:
+        if 'pubsubSubscriptions.jinja' in file:
+            with open(file) as file_:
+                template = jinja2.Template(file_.read())
+                subscriptions_output_text = template.render(env="")
+                subscriptions = yaml.load(subscriptions_output_text, Loader=yaml.SafeLoader)["resources"]
+                for subscription in subscriptions:
+                    subscription_list.append({"subscription": subscription["properties"]["subscription"] , "topic": subscription["properties"]["topic"].split("/")[3]})
+    
+    for sub in subscription_list:
+        create_subscription(project_id, sub["topic"], sub["subscription"])
 
 def list_subscriptions_in_topic(project_id: str, topic_id: str) -> None:
     """Lists all subscriptions for a given topic."""
@@ -756,6 +773,9 @@ if __name__ == "__main__":
     create_parser.add_argument("topic_id")
     create_parser.add_argument("subscription_id")
 
+    create_subscription_from_file_parser = subparsers.add_parser("create-subscriptions-from-file", help=create_subscription.__doc__)
+    create_subscription_from_file_parser.add_argument("path")
+
     create_with_dead_letter_policy_parser = subparsers.add_parser(
         "create-with-dead-letter-policy",
         help=create_subscription_with_dead_letter_topic.__doc__,
@@ -929,3 +949,5 @@ if __name__ == "__main__":
         receive_messages_with_delivery_attempts(
             args.project_id, args.subscription_id, args.timeout
         )
+    elif args.command == "create-subscriptions-from-file":
+        create_subscriptions_from_file(args.project_id, args.path)

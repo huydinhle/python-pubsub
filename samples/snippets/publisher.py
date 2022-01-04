@@ -402,6 +402,7 @@ def create_topics_from_file(project_id:str, path: str):
                     topic_list.append(topic["properties"]["topic"])
 
     print(topic_list)
+    topic_list = list(set(topic_list))
     for topic_name in topic_list:
         create_topic(project_id, topic_name)
 
